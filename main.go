@@ -2,10 +2,6 @@ package main
 
 import "cart/w4"
 
-var gameOver = false
-var awaitReset = false
-var frameCounter = 0
-
 type Player struct {
 	x, y int
 }
@@ -15,6 +11,11 @@ type Obstacle struct {
 	width       uint
 }
 
+type Coin struct {
+	x, y int
+	collected bool
+}
+
 var player = Player{80, 130} 
 var obstacles = []Obstacle{
 	{0, 100, 2, 30},     // Carro na faixa 1
@@ -22,35 +23,29 @@ var obstacles = []Obstacle{
 	{0, 60, 1, 20},      // Carro na faixa 3
 }
 
-var score = 0
 var lastPlayerY = player.y
+var score = 0
+var coins = [3]Coin{}
+var roadY = [3]int{100, 80, 60}
+var gameOver = false
+var awaitReset = false
+var showStartMenu = true
+var frameCounter = 0
+var rngSeed uint32 = 1
+var blinkCounter = 0
+var gameStarted = false
+var menuFrameCounter = 0
+var coinBlink = false
+var playerBlink = false
 
-// Atualiza a pontuação 
-func updateScore() {
-	// Se jogador subiu (y diminuiu), incrementa a pontuação
-	if player.y < lastPlayerY {
-		score++
-		lastPlayerY = player.y
-	}
 
-	// Evita pontuação negativa se descer
-	if player.y > lastPlayerY {
-		lastPlayerY = player.y
-	}
-}
+func start(){}
 
-// Converte inteiro positico em string
-func intToStr(n int) string {
-	if n == 0 {
-		return "0"
-	}
-	digits := []byte{}
-	for n > 0 {
-		d := byte(n % 10)
-		digits = append([]byte{ '0' + d }, digits...)
-		n /= 10
-	}
-	return string(digits)
+func randInt(min, max int) int {
+	rngSeed ^= rngSeed << 13
+	rngSeed ^= rngSeed >> 17
+	rngSeed ^= rngSeed << 5
+	return min + int(rngSeed%(uint32(max-min+1)))
 }
 
 // Cria a iteração com os buttons de movimentação 
@@ -68,6 +63,20 @@ func handleInput() {
 	}
 	if gamepad&w4.BUTTON_RIGHT != 0 {
 		player.x += 2
+	}
+
+	// Limites da tela (player 8x8px, tela 160x160)
+	if player.x < 0 {
+		player.x = 0
+	}
+	if player.x > 160-8 {
+		player.x = 160 - 8
+	}
+	if player.y < 0 {
+		player.y = 0
+	}
+	if player.y > 160-8 {
+		player.y = 160 - 8
 	}
 }
 
@@ -92,6 +101,7 @@ func rectsOverlap(x1, y1, w1, h1, x2, y2, w2, h2 int) bool {
 		y1+h1 > y2
 }
 
+// Reinicia o game 
 func resetGame() {
 	player = Player{80, 130}
 	obstacles[0].x = 0
@@ -100,6 +110,8 @@ func resetGame() {
 	gameOver = false
 	score = 0
 	lastPlayerY = player.y
+
+	generateCoins()
 }
 
 // Verifica se houve colisão entre obstaculo e player 
@@ -115,13 +127,120 @@ func checkCollision() {
 	}
 }
 
-// Cria o ambiente do jogo
+// Verifica se o player pegou a moeda 
+func checkCoinCollection() {
+	for i := range coins {
+		if !coins[i].collected && rectsOverlap(player.x, player.y, 8, 8, coins[i].x, coins[i].y, 6, 6) {
+			coins[i].collected = true
+			score++
+			w4.Tone(880, 10, 100, w4.TONE_PULSE1|w4.TONE_MODE1)
+		}
+	}
+
+	if allCoinsCollected() {
+		generateCoins()
+	}
+}
+
+// Função gera a moedas em lugares aleatorias 
+func generateCoins() {
+	for i := range coins {
+		coins[i].x = randInt(5, 155) // posição X aleatória entre 5 e 155
+		coins[i].y = roadY[i%len(roadY)] // fixa em uma das faixas
+		coins[i].collected = false
+	}
+}
+
+// Verifica se todas as moedas foram coletadas 
+func allCoinsCollected() bool {
+	for _, c := range coins {
+		if !c.collected {
+			return false
+		}
+	}
+	return true
+}
+
+func drawDashedLine(y int) {
+	const dashWidth = 4
+	const dashSpacing = 4
+	for x := 0; x < 160; x += dashWidth + dashSpacing {
+		w4.Rect(x, y, dashWidth, 2) // 2 pixels de altura para a linha
+	}
+}
+
+func drawRoad() {
+	for _, o := range obstacles {
+		*w4.DRAW_COLORS = 3    // cinza estrada
+		w4.Rect(0, o.y, 160, 10)
+
+		*w4.DRAW_COLORS = 2   // branco linha pontilhada
+		drawDashedLine(o.y + 5)
+	}
+}
+
+// Menu inicial 
+func drawMenu() {
+
+	w4.PALETTE[0] = 0x29ADFF
+	w4.PALETTE[1] = 0xFFFFFF
+	w4.PALETTE[2] = 0x808080
+	w4.PALETTE[3] = 0xFFFF00
+
+	// Atualiza animações
+	menuFrameCounter++
+	if menuFrameCounter%15 == 0 {
+		coinBlink = !coinBlink
+	}
+	if menuFrameCounter%20 == 0 {
+		playerBlink = !playerBlink
+	}
+	moveObstacles()
+
+	// Fundo azul
+	*w4.DRAW_COLORS = 0x21
+	w4.Rect(0, 0, 160, 160)
+
+	// Estradas
+	drawRoad()
+
+	// Obstáculos
+	for _, o := range obstacles {
+		*w4.DRAW_COLORS = 0x12
+		w4.Rect(o.x-1, o.y-1, o.width+2, 10)
+
+		*w4.DRAW_COLORS = 0x21
+		w4.Rect(o.x, o.y, o.width, 8)
+	}
+
+	// Moedas piscando
+	if coinBlink {
+		*w4.DRAW_COLORS = 0x44 // usa cor 4 (amarelo)
+		for _, c := range coins {
+			w4.Rect(c.x, c.y, 6, 6)
+		}
+	}
+
+	// Jogador piscando
+	if playerBlink {
+		*w4.DRAW_COLORS = 0x21
+		w4.Rect(player.x, player.y, 8, 8)
+	}
+
+	// Texto de título e instruções
+	*w4.DRAW_COLORS = 0x04
+	w4.Text("CROSSY GO", 45, 20)
+	w4.Text("Pressione X", 42, 100)
+	w4.Text("para comecar", 36, 110)
+}
+
+
 func draw() {
 	// Paleta: céu azul, jogador branco
 	w4.PALETTE[0] = 0x29ADFF // Céu azul claro
 	w4.PALETTE[1] = 0xFFFFFF // Jogador branco
 	w4.PALETTE[2] = 0x808080 // Estrada cinza
-	w4.PALETTE[3] = 0xFF0000 // Carro vermelho
+	w4.PALETTE[3] = 0xFFFF00 
 
 	// Define quais cores usar: jogador = branco (1), fundo = azul (0)
 	*w4.DRAW_COLORS = 0x21
@@ -130,43 +249,64 @@ func draw() {
 	w4.Rect(0, 0, 160, 160)
 
 	// Estrada cinza 
-	*w4.DRAW_COLORS = 3
+	drawRoad()
+
 	for _, o := range obstacles {
-		w4.Rect(0, o.y, 160, 10)
+		*w4.DRAW_COLORS = 0x12
+		w4.Rect(o.x-1, o.y-1, o.width+2, 10)
+
+		*w4.DRAW_COLORS = 0x21
+		w4.Rect(o.x, o.y, o.width, 8)
 	}
 
-	// Carro vermelho
-	*w4.DRAW_COLORS = 4
-	for _, o := range obstacles {
-		w4.Rect(o.x, o.y, o.width, 8)
+	*w4.DRAW_COLORS = 4 
+	for _, c := range coins {
+		if !c.collected {
+			w4.Rect(c.x, c.y, 6, 6)
+		}
 	}
 
 	// Jogador branco
 	*w4.DRAW_COLORS = 0x21
 	w4.Rect(player.x, player.y, 8, 8)
 
-	w4.Text("Pontos: ", 5, 5)
-	w4.Text(intToStr(score), 60, 5)
 }
 
-// Chama todas as funções
+
+//go:export update
 func update() {
-	handleInput()
+
+	if !gameStarted {
+		drawMenu()
+
+		gamepad := *w4.GAMEPAD1
+		if gamepad&w4.BUTTON_1 != 0 {
+			gameStarted = true
+			resetGame()
+		}
+		return
+	}
+
+
+	if !gameOver {
+		handleInput()
+		moveObstacles()
+		checkCollision()
+		checkCoinCollection()
+	}
+
 	draw()
 
 	if gameOver {
 		gameOverScreen()
 
 		var gamepad = *w4.GAMEPAD1
-		if gamepad&w4.BUTTON_1 != 0 {
+		if gamepad&w4.BUTTON_1 != 0 {  // ESPAÇO
 			resetGame()
 		}
-	} else {
-		moveObstacles()
-		checkCollision()
-		updateScore()
-	}
+	} 
 }
+
 
 func gameOverScreen() {
 	*w4.DRAW_COLORS = 2 // cinza ou preto
@@ -178,3 +318,5 @@ func gameOverScreen() {
 	w4.Text("Pressione X", 44, 80)
 	w4.Text("para reiniciar", 36, 90)
 }
+
+

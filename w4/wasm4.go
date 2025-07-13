@@ -101,6 +101,8 @@ func Rect(x int, y int, width uint, height uint)
 /** Draws text using the built-in system font. */
 //go:export textUtf8
 func Text(text string, x int, y int)
+func TextPont(str *byte, x, y, size int)
+
 
 // ┌───────────────────────────────────────────────────────────────────────────┐
 // │                                                                           │
