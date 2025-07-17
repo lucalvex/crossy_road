@@ -12,15 +12,15 @@ type Obstacle struct {
 }
 
 type Coin struct {
-	x, y int
+	x, y      int
 	collected bool
 }
 
-var player = Player{80, 130} 
+var player = Player{80, 130}
 var obstacles = []Obstacle{
-	{0, 100, 2, 30},     // Carro na faixa 1
-	{160, 80, -3, 40},   // Carro na faixa 2 (vai para a esquerda)
-	{0, 60, 1, 20},      // Carro na faixa 3
+	{0, 100, 2, 30},
+	{160, 80, -3, 40},
+	{0, 60, 1, 20},
 }
 
 var lastPlayerY = player.y
@@ -37,9 +37,9 @@ var gameStarted = false
 var menuFrameCounter = 0
 var coinBlink = false
 var playerBlink = false
+var musicCounter = 0
 
-
-func start(){}
+func start() {}
 
 func randInt(min, max int) int {
 	rngSeed ^= rngSeed << 13
@@ -48,7 +48,86 @@ func randInt(min, max int) int {
 	return min + int(rngSeed%(uint32(max-min+1)))
 }
 
-// Cria a iteração com os buttons de movimentação 
+func drawChicken(x, y int) {
+	// Corpo branco da galinha
+	*w4.DRAW_COLORS = 2
+	w4.Rect(x+1, y+2, 6, 4)
+
+	// Cabeça branca
+	*w4.DRAW_COLORS = 2
+	w4.Rect(x+2, y, 4, 3)
+
+	// Bico amarelo
+	*w4.DRAW_COLORS = 0x40
+	w4.Rect(x+1, y+1, 3, 2)
+
+	// Crista vermelha
+	*w4.DRAW_COLORS = 0x30
+	w4.Rect(x+3, y-1, 2, 1)
+
+	// Olho
+	*w4.DRAW_COLORS = 0x04
+	w4.Rect(x+2, y+1, 1, 1)
+
+	// Pernas amarelas
+	*w4.DRAW_COLORS = 0x40
+	w4.Rect(x+2, y+6, 1, 2)
+	w4.Rect(x+4, y+6, 1, 2)
+
+	// Pés
+	*w4.DRAW_COLORS = 0x40
+	w4.Rect(x+1, y+7, 2, 1)
+	w4.Rect(x+4, y+7, 2, 1)
+}
+
+func drawDetailedCar(x, y int, width uint, facingLeft bool) {
+	w := int(width)
+
+	if facingLeft {
+		// Borda branca da cabine
+		*w4.DRAW_COLORS = 2
+		w4.Rect(x-1, y-1, uint(w/3)+2, 8)
+
+		// Cabine verde
+		*w4.DRAW_COLORS = 0x01
+		w4.Rect(x, y, uint(w/3), 6)
+
+		// Borda branca da carroceria principal
+		*w4.DRAW_COLORS = 2
+		w4.Rect(x+w/3-1, y+1, uint((w*2)/3)+2, 6)
+
+		// Carroceria principal verde
+		*w4.DRAW_COLORS = 0x01
+		w4.Rect(x+w/3, y+2, uint((w*2)/3), 4)
+
+		// Rodas
+		*w4.DRAW_COLORS = 0x40
+		w4.Oval(x+w-8, y+6, 4, 4)
+		w4.Oval(x+4, y+6, 4, 4)
+	} else {
+		// Borda branca da carroceria principal
+		*w4.DRAW_COLORS = 2
+		w4.Rect(x-1, y+1, uint((w*2)/3)+2, 6)
+
+		// Carroceria principal verde
+		*w4.DRAW_COLORS = 0x01
+		w4.Rect(x, y+2, uint((w*2)/3), 4)
+
+		// Borda branca da cabine
+		*w4.DRAW_COLORS = 2
+		w4.Rect(x+(w*2)/3-1, y-1, uint(w/3)+2, 8)
+
+		// Cabine verde
+		*w4.DRAW_COLORS = 0x01
+		w4.Rect(x+(w*2)/3, y, uint(w/3), 6)
+
+		// Rodas
+		*w4.DRAW_COLORS = 0x40
+		w4.Oval(x+4, y+6, 4, 4)
+		w4.Oval(x+w-8, y+6, 4, 4)
+	}
+}
+
 func handleInput() {
 	gamepad := *w4.GAMEPAD1
 
@@ -65,7 +144,7 @@ func handleInput() {
 		player.x += 2
 	}
 
-	// Limites da tela (player 8x8px, tela 160x160)
+	// Limites da tela
 	if player.x < 0 {
 		player.x = 0
 	}
@@ -80,12 +159,11 @@ func handleInput() {
 	}
 }
 
-// Move os obstaculos na tela horizontalmente 
 func moveObstacles() {
 	for i := range obstacles {
 		obstacles[i].x += obstacles[i].speed
 
-		// Se sair da tela, volta para o lado oposto
+		// Reposiciona quando sai da tela
 		if obstacles[i].speed > 0 && obstacles[i].x > 160 {
 			obstacles[i].x = -int(obstacles[i].width)
 		} else if obstacles[i].speed < 0 && obstacles[i].x+int(obstacles[i].width) < 0 {
@@ -101,7 +179,6 @@ func rectsOverlap(x1, y1, w1, h1, x2, y2, w2, h2 int) bool {
 		y1+h1 > y2
 }
 
-// Reinicia o game 
 func resetGame() {
 	player = Player{80, 130}
 	obstacles[0].x = 0
@@ -110,30 +187,63 @@ func resetGame() {
 	gameOver = false
 	score = 0
 	lastPlayerY = player.y
+	musicCounter = 0
 
 	generateCoins()
 }
 
-// Verifica se houve colisão entre obstaculo e player 
+func playBackgroundMusic() {
+	musicCounter++
+
+	if musicCounter%30 == 0 {
+		noteIndex := (musicCounter / 30) % 16
+
+		// Melodia simples em loop
+		melody := []uint{
+			523, 659, 784, 659,
+			523, 659, 784, 659,
+			698, 784, 880, 784,
+			659, 523, 440, 523,
+		}
+
+		w4.Tone(melody[noteIndex], 20, 20, w4.TONE_PULSE2|w4.TONE_MODE3)
+	}
+}
+
+func playGameOverSound() {
+	musicCounter = 0
+
+	w4.Tone(523, 12, 100, w4.TONE_PULSE1|w4.TONE_MODE1)
+	w4.Tone(415, 12, 100, w4.TONE_PULSE1|w4.TONE_MODE1)
+	w4.Tone(330, 12, 100, w4.TONE_PULSE1|w4.TONE_MODE1)
+	w4.Tone(220, 16, 100, w4.TONE_PULSE1|w4.TONE_MODE1)
+	w4.Tone(247, 12, 90, w4.TONE_PULSE1|w4.TONE_MODE1)
+	w4.Tone(175, 20, 100, w4.TONE_PULSE1|w4.TONE_MODE1)
+	w4.Tone(131, 30, 100, w4.TONE_PULSE1|w4.TONE_MODE2)
+}
+
 func checkCollision() {
 	for _, o := range obstacles {
-		if rectsOverlap(player.x, player.y, 8, 8, o.x, o.y, int(o.width), 8) {
+		if rectsOverlap(player.x, player.y, 8, 8, o.x, o.y, int(o.width), 10) {
 			gameOver = true
-
-			// Som de colisão
-			w4.Tone(220, 20, 100, w4.TONE_PULSE1|w4.TONE_MODE1)
-			w4.Tone(150, 20, 150, w4.TONE_PULSE1|w4.TONE_MODE1)
+			playGameOverSound()
 		}
 	}
 }
 
-// Verifica se o player pegou a moeda 
+func playCoinSound() {
+	w4.Tone(987, 5, 90, w4.TONE_PULSE1|w4.TONE_MODE1)
+	w4.Tone(1319, 12, 100, w4.TONE_PULSE1|w4.TONE_MODE1)
+	w4.Tone(1047, 8, 80, w4.TONE_PULSE1|w4.TONE_MODE1)
+	w4.Tone(784, 4, 60, w4.TONE_PULSE1|w4.TONE_MODE2)
+}
+
 func checkCoinCollection() {
 	for i := range coins {
 		if !coins[i].collected && rectsOverlap(player.x, player.y, 8, 8, coins[i].x, coins[i].y, 6, 6) {
 			coins[i].collected = true
 			score++
-			w4.Tone(880, 10, 100, w4.TONE_PULSE1|w4.TONE_MODE1)
+			playCoinSound()
 		}
 	}
 
@@ -142,16 +252,14 @@ func checkCoinCollection() {
 	}
 }
 
-// Função gera a moedas em lugares aleatorias 
 func generateCoins() {
 	for i := range coins {
-		coins[i].x = randInt(5, 155) // posição X aleatória entre 5 e 155
-		coins[i].y = roadY[i%len(roadY)] // fixa em uma das faixas
+		coins[i].x = randInt(5, 155)
+		coins[i].y = roadY[i%len(roadY)]
 		coins[i].collected = false
 	}
 }
 
-// Verifica se todas as moedas foram coletadas 
 func allCoinsCollected() bool {
 	for _, c := range coins {
 		if !c.collected {
@@ -165,29 +273,116 @@ func drawDashedLine(y int) {
 	const dashWidth = 4
 	const dashSpacing = 4
 	for x := 0; x < 160; x += dashWidth + dashSpacing {
-		w4.Rect(x, y, dashWidth, 2) // 2 pixels de altura para a linha
+		w4.Rect(x, y, dashWidth, 2)
 	}
 }
 
 func drawRoad() {
 	for _, o := range obstacles {
-		*w4.DRAW_COLORS = 3    // cinza estrada
-		w4.Rect(0, o.y, 160, 10)
+		*w4.DRAW_COLORS = 3
+		w4.Rect(0, o.y, 160, 16)
 
-		*w4.DRAW_COLORS = 2   // branco linha pontilhada
-		drawDashedLine(o.y + 5)
+		*w4.DRAW_COLORS = 2
+		drawDashedLine(o.y + 8)
 	}
 }
 
-// Menu inicial 
-func drawMenu() {
+func drawRoundedCoin(x, y int) {
+	*w4.DRAW_COLORS = 0x40
+	w4.Rect(x+1, y, 4, 6)
+	w4.Rect(x, y+1, 6, 4)
+	w4.Rect(x+1, y+1, 4, 4)
+}
 
-	w4.PALETTE[0] = 0x29ADFF
+func drawScore() {
+	*w4.DRAW_COLORS = 0x04
+	w4.Text("Score: ", 5, 5)
+
+	// Versão mais simples que funciona com números pequenos
+	if score < 10 {
+		switch score {
+		case 0:
+			w4.Text("0", 55, 5)
+		case 1:
+			w4.Text("1", 55, 5)
+		case 2:
+			w4.Text("2", 55, 5)
+		case 3:
+			w4.Text("3", 55, 5)
+		case 4:
+			w4.Text("4", 55, 5)
+		case 5:
+			w4.Text("5", 55, 5)
+		case 6:
+			w4.Text("6", 55, 5)
+		case 7:
+			w4.Text("7", 55, 5)
+		case 8:
+			w4.Text("8", 55, 5)
+		case 9:
+			w4.Text("9", 55, 5)
+		}
+	} else if score < 100 {
+		tens := score / 10
+		ones := score % 10
+
+		// Desenha dezenas
+		switch tens {
+		case 1:
+			w4.Text("1", 55, 5)
+		case 2:
+			w4.Text("2", 55, 5)
+		case 3:
+			w4.Text("3", 55, 5)
+		case 4:
+			w4.Text("4", 55, 5)
+		case 5:
+			w4.Text("5", 55, 5)
+		case 6:
+			w4.Text("6", 55, 5)
+		case 7:
+			w4.Text("7", 55, 5)
+		case 8:
+			w4.Text("8", 55, 5)
+		case 9:
+			w4.Text("9", 55, 5)
+		}
+
+		// Desenha unidades
+		switch ones {
+		case 0:
+			w4.Text("0", 63, 5)
+		case 1:
+			w4.Text("1", 63, 5)
+		case 2:
+			w4.Text("2", 63, 5)
+		case 3:
+			w4.Text("3", 63, 5)
+		case 4:
+			w4.Text("4", 63, 5)
+		case 5:
+			w4.Text("5", 63, 5)
+		case 6:
+			w4.Text("6", 63, 5)
+		case 7:
+			w4.Text("7", 63, 5)
+		case 8:
+			w4.Text("8", 63, 5)
+		case 9:
+			w4.Text("9", 63, 5)
+		}
+	} else {
+		w4.Text("99+", 55, 5)
+	}
+}
+
+func drawMenu() {
+	w4.PALETTE[0] = 0x00AA00
 	w4.PALETTE[1] = 0xFFFFFF
 	w4.PALETTE[2] = 0x808080
 	w4.PALETTE[3] = 0xFFFF00
 
-	// Atualiza animações
+	// Animações do menu
 	menuFrameCounter++
 	if menuFrameCounter%15 == 0 {
 		coinBlink = !coinBlink
@@ -197,85 +392,62 @@ func drawMenu() {
 	}
 	moveObstacles()
 
-	// Fundo azul
+	// Fundo verde
 	*w4.DRAW_COLORS = 0x21
 	w4.Rect(0, 0, 160, 160)
 
-	// Estradas
 	drawRoad()
 
-	// Obstáculos
 	for _, o := range obstacles {
-		*w4.DRAW_COLORS = 0x12
-		w4.Rect(o.x-1, o.y-1, o.width+2, 10)
-
-		*w4.DRAW_COLORS = 0x21
-		w4.Rect(o.x, o.y, o.width, 8)
+		drawDetailedCar(o.x, o.y, o.width, o.speed < 0)
 	}
 
-	// Moedas piscando
 	if coinBlink {
-		*w4.DRAW_COLORS = 0x44 // usa cor 4 (amarelo)
 		for _, c := range coins {
-			w4.Rect(c.x, c.y, 6, 6)
+			drawRoundedCoin(c.x, c.y)
 		}
 	}
 
-	// Jogador piscando
 	if playerBlink {
-		*w4.DRAW_COLORS = 0x21
-		w4.Rect(player.x, player.y, 8, 8)
+		drawChicken(player.x, player.y)
 	}
 
-	// Texto de título e instruções
 	*w4.DRAW_COLORS = 0x04
 	w4.Text("CROSSY GO", 45, 20)
+	w4.Text("Colete moedas!", 28, 40)
 	w4.Text("Pressione X", 42, 100)
 	w4.Text("para comecar", 36, 110)
 }
 
-
 func draw() {
-	// Paleta: céu azul, jogador branco
-	w4.PALETTE[0] = 0x29ADFF // Céu azul claro
-	w4.PALETTE[1] = 0xFFFFFF // Jogador branco
-	w4.PALETTE[2] = 0x808080 // Estrada cinza
-	w4.PALETTE[3] = 0xFFFF00 
+	w4.PALETTE[0] = 0x00AA00
+	w4.PALETTE[1] = 0xFFFFFF
+	w4.PALETTE[2] = 0x808080
+	w4.PALETTE[3] = 0xFFFF00
 
-	// Define quais cores usar: jogador = branco (1), fundo = azul (0)
 	*w4.DRAW_COLORS = 0x21
 
-	// Fundo azul
+	// Fundo verde
 	w4.Rect(0, 0, 160, 160)
 
-	// Estrada cinza 
 	drawRoad()
 
 	for _, o := range obstacles {
-		*w4.DRAW_COLORS = 0x12
-		w4.Rect(o.x-1, o.y-1, o.width+2, 10)
-
-		*w4.DRAW_COLORS = 0x21
-		w4.Rect(o.x, o.y, o.width, 8)
+		drawDetailedCar(o.x, o.y, o.width, o.speed < 0)
 	}
 
-	*w4.DRAW_COLORS = 4 
 	for _, c := range coins {
 		if !c.collected {
-			w4.Rect(c.x, c.y, 6, 6)
+			drawRoundedCoin(c.x, c.y)
 		}
 	}
 
-	// Jogador branco
-	*w4.DRAW_COLORS = 0x21
-	w4.Rect(player.x, player.y, 8, 8)
-
+	drawChicken(player.x, player.y)
+	drawScore()
 }
-
 
 //go:export update
 func update() {
-
 	if !gameStarted {
 		drawMenu()
 
@@ -287,12 +459,12 @@ func update() {
 		return
 	}
 
-
 	if !gameOver {
 		handleInput()
 		moveObstacles()
 		checkCollision()
 		checkCoinCollection()
+		playBackgroundMusic()
 	}
 
 	draw()
@@ -301,22 +473,111 @@ func update() {
 		gameOverScreen()
 
 		var gamepad = *w4.GAMEPAD1
-		if gamepad&w4.BUTTON_1 != 0 {  // ESPAÇO
+		if gamepad&w4.BUTTON_1 != 0 {
 			resetGame()
 		}
-	} 
+	}
 }
-
 
 func gameOverScreen() {
-	*w4.DRAW_COLORS = 2 // cinza ou preto
-	w4.Rect(20, 60, 120, 40)
+	boxWidth := 120
+	boxHeight := 70
+	boxX := (160 - boxWidth) / 2
+	boxY := (160 - boxHeight) / 2
 
-	// Texto branco sobre a caixa
+	*w4.DRAW_COLORS = 2
+	w4.Rect(boxX, boxY, uint(boxWidth), uint(boxHeight))
+
+	textWidth := 7 * 8
+	textX := (160 - textWidth) / 2
 	*w4.DRAW_COLORS = 1
-	w4.Text("COLIDIU", 40, 65)
-	w4.Text("Pressione X", 44, 80)
-	w4.Text("para reiniciar", 36, 90)
+	w4.Text("COLIDIU", textX, boxY+8)
+
+	*w4.DRAW_COLORS = 1
+	w4.Text("Score: ", 50, boxY+22)
+
+	// Versão mais simples que funciona com números pequenos
+	if score < 10 {
+		switch score {
+		case 0:
+			w4.Text("0", 106, boxY+22)
+		case 1:
+			w4.Text("1", 106, boxY+22)
+		case 2:
+			w4.Text("2", 106, boxY+22)
+		case 3:
+			w4.Text("3", 106, boxY+22)
+		case 4:
+			w4.Text("4", 106, boxY+22)
+		case 5:
+			w4.Text("5", 106, boxY+22)
+		case 6:
+			w4.Text("6", 106, boxY+22)
+		case 7:
+			w4.Text("7", 106, boxY+22)
+		case 8:
+			w4.Text("8", 106, boxY+22)
+		case 9:
+			w4.Text("9", 106, boxY+22)
+		}
+	} else if score < 100 {
+		tens := score / 10
+		ones := score % 10
+
+		// Desenha dezenas
+		switch tens {
+		case 1:
+			w4.Text("1", 106, boxY+22)
+		case 2:
+			w4.Text("2", 106, boxY+22)
+		case 3:
+			w4.Text("3", 106, boxY+22)
+		case 4:
+			w4.Text("4", 106, boxY+22)
+		case 5:
+			w4.Text("5", 106, boxY+22)
+		case 6:
+			w4.Text("6", 106, boxY+22)
+		case 7:
+			w4.Text("7", 106, boxY+22)
+		case 8:
+			w4.Text("8", 106, boxY+22)
+		case 9:
+			w4.Text("9", 106, boxY+22)
+		}
+
+		// Desenha unidades
+		switch ones {
+		case 0:
+			w4.Text("0", 114, boxY+22)
+		case 1:
+			w4.Text("1", 114, boxY+22)
+		case 2:
+			w4.Text("2", 114, boxY+22)
+		case 3:
+			w4.Text("3", 114, boxY+22)
+		case 4:
+			w4.Text("4", 114, boxY+22)
+		case 5:
+			w4.Text("5", 114, boxY+22)
+		case 6:
+			w4.Text("6", 114, boxY+22)
+		case 7:
+			w4.Text("7", 114, boxY+22)
+		case 8:
+			w4.Text("8", 114, boxY+22)
+		case 9:
+			w4.Text("9", 114, boxY+22)
+		}
+	} else {
+		w4.Text("99+", 106, boxY+22)
+	}
+
+	textWidth2 := 11 * 8
+	textX2 := (160 - textWidth2) / 2
+	w4.Text("Pressione X", textX2, boxY+36)
+
+	textWidth3 := 14 * 8
+	textX3 := (160 - textWidth3) / 2
+	w4.Text("para reiniciar", textX3, boxY+50)
 }
-
-
