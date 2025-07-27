@@ -144,18 +144,20 @@ func handleInput() {
 		player.x += 2
 	}
 
-	// Limites da tela
+	const playerWidth = 8
+	const playerHeight = 10
+
 	if player.x < 0 {
 		player.x = 0
 	}
-	if player.x > 160-8 {
-		player.x = 160 - 8
+	if player.x > 160 - playerWidth {
+		player.x = 160 - playerWidth
 	}
-	if player.y < 0 {
-		player.y = 0
+	if player.y < 1 {
+		player.y = 2
 	}
-	if player.y > 160-8 {
-		player.y = 160 - 8
+	if player.y > 160 - playerHeight {
+		player.y = 160 - playerHeight
 	}
 }
 
@@ -413,10 +415,10 @@ func drawMenu() {
 	}
 
 	*w4.DRAW_COLORS = 0x04
-	w4.Text("CROSSY GO", 45, 20)
-	w4.Text("Colete moedas!", 28, 40)
-	w4.Text("Pressione X", 42, 100)
-	w4.Text("para comecar", 36, 110)
+	w4.Text("CROSSY ROAD", 35, 20)
+	w4.Text("Collect coins!", 28, 40)
+	w4.Text("Press \x80", 58, 110)
+	w4.Text("to start", 50, 120)
 }
 
 func draw() {
@@ -491,7 +493,7 @@ func gameOverScreen() {
 	textWidth := 7 * 8
 	textX := (160 - textWidth) / 2
 	*w4.DRAW_COLORS = 1
-	w4.Text("COLIDIU", textX, boxY+8)
+	w4.Text("COLLIDED", textX, boxY+8)
 
 	*w4.DRAW_COLORS = 1
 	w4.Text("Score: ", 50, boxY+22)
@@ -575,9 +577,9 @@ func gameOverScreen() {
 
 	textWidth2 := 11 * 8
 	textX2 := (160 - textWidth2) / 2
-	w4.Text("Pressione X", textX2, boxY+36)
+	w4.Text("Press \x80", textX2 + 20, boxY+36)
 
 	textWidth3 := 14 * 8
 	textX3 := (160 - textWidth3) / 2
-	w4.Text("para reiniciar", textX3, boxY+50)
+	w4.Text("to restart", textX3 + 20, boxY+50)
 }
