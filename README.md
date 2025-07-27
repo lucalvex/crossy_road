@@ -1,26 +1,16 @@
-# crossy-road
+# Crossy Road Clone
 
-A game written in Go for the [WASM-4](https://wasm4.org) fantasy console.
+**Autor:** Lucas Alves e Matheus Campaner
 
-## Building
+Este é um clone simples do clássico jogo Crossy Road, desenvolvido para a plataforma WASM-4 utilizando a linguagem Go.
 
-Build the cart by running:
+O objetivo é atravessar a estrada desviando dos carros e coletando moedas para ganhar pontos. Ao colidir com um obstáculo, o jogo reinicia.
 
-```shell
-make
-```
+## Controles
 
-Then run it with:
+- ⬆️ / ⬇️ / ⬅️ / ➡️ — mover o personagem
+- Ⓧ (botão X) — iniciar ou reiniciar o jogo
 
-```shell
-w4 run build/cart.wasm
-```
+## Créditos
 
-For more info about setting up WASM-4, see the [quickstart guide](https://wasm4.org/docs/getting-started/setup?code-lang=go#quickstart).
-
-## Links
-
-- [Documentation](https://wasm4.org/docs): Learn more about WASM-4.
-- [Snake Tutorial](https://wasm4.org/docs/tutorials/snake/goal): Learn how to build a complete game
-  with a step-by-step tutorial.
-- [GitHub](https://github.com/aduros/wasm4): Submit an issue or PR. Contributions are welcome!
+Desenvolvido como parte do projeto da disciplina XYZ - UEM, 2025/1.
