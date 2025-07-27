@@ -13,4 +13,4 @@ O objetivo é atravessar a estrada desviando dos carros e coletando moedas para 
 
 ## Créditos
 
-Desenvolvido como parte do projeto da disciplina XYZ - UEM, 2025/1.
+Desenvolvido como parte do projeto da disciplina Linguagem de Programação e Interfaceamento Hardware e Software - UEM, 2025/1.
