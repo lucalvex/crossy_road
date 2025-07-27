@@ -1,9 +1,7 @@
 
 ---
 author: Lucas Alves e Matheus Campaner 
-
 github: lucalves
-
 date: 2025-07-27
 ---
 
